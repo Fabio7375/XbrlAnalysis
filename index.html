@@ -28,6 +28,7 @@
     table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
     th, td { padding: 12px; border-bottom: 1px solid #ddd; text-align: left; }
     th { background: var(--secondary-color); color: #fff; position: sticky; top: 0; }
+    .sezione-titolo { background-color: var(--primary-color) !important; color: white; font-weight: bold; text-align: center; font-size: 1.1em; }
     .voce-principale { font-weight: bold; background: #e8eaf6; }
     .voce-sub, .voce-dettaglio { padding-left: 25px !important; font-style: italic; }
     .delta-pos { color: var(--positive-color); } .delta-neg { color: var(--negative-color); }
@@ -93,15 +94,13 @@
 
     <div class="info-box">
         <h3>Metodologie di Valutazione Applicate</h3>
-        <p>L'analisi automatica utilizzerà i seguenti metodi di valutazione, in linea con i Principi Italiani di Valutazione (PIV) e ispirati allo strumento fornito. Le formule sono state adattate ai dati disponibili nel formato XBRL.</p>
-        
+        <p>L'analisi automatica utilizzerà i seguenti metodi di valutazione, in linea con i Principi Italiani di Valutazione (PIV). Le formule sono state adattate ai dati disponibili nel formato XBRL.</p>
         <h4>1. Metodo Reddituale Puro (Rendita Limitata)</h4>
-        <p>Questo metodo considera il valore dell'impresa pari al valore attuale dei redditi normali attesi per un numero limitato di anni ('n').</p>
+        <p>Questo metodo considera il valore dell'impresa pari al valore attuale dei redditi normali attesi (R) per un numero limitato di anni ('n').</p>
         <ul>
-            <li><strong>Formula:</strong> <code>Equity Value = Reddito Medio Atteso (R) * a(n, i)</code></li>
-            <li><strong>Coefficiente 'a(n, i)':</strong> È il fattore che attualizza una rendita. <br><code>a(n, i) = [1 - (1 + i)^-n] / i</code></li>
+            <li><strong>Formula:</strong> <code>Equity Value = Reddito Medio Atteso (R) * a(n, i')</code></li>
+            <li><strong>Coefficiente 'a(n, i')':</strong> È il fattore che attualizza una rendita. <br><code>a(n, i') = [1 - (1 + i')^-n] / i'</code></li>
         </ul>
-
         <h4>2. Metodo Misto Patrimoniale-Reddituale</h4>
         <p>Combina il valore tangibile del patrimonio (K) con il valore intangibile derivante dalla capacità di generare extra-profitti (Goodwill) per un periodo limitato ('n').</p>
         <ul>
@@ -109,17 +108,8 @@
             <li><strong>Calcolo del Goodwill:</strong> Si basa sul 'sovra-reddito', cioè la differenza tra il reddito atteso e la normale remunerazione del capitale investito.
                 <ul>
                     <li><code>Sovra-Reddito = R - (K * i_congruo)</code> <small>(dove i_congruo è il tasso di remunerazione del capitale)</small></li>
-                    <li><code>Goodwill = Sovra-Reddito * a(n, i)</code></li>
+                    <li><code>Goodwill = Sovra-Reddito * a(n, i')</code></li>
                 </ul>
-            </li>
-        </ul>
-        
-        <h4>3. Metodo dei Multipli di Mercato (EV/EBITDA)</h4>
-        <p>Stima il valore aziendale confrontando un aggregato economico (EBITDA) con i multipli di mercato di aziende comparabili.</p>
-        <ul>
-             <li><strong>Calcolo Valore:</strong><br>
-                1. <code>Enterprise Value = EBITDA (ultimo anno) * Multiplo EV/EBITDA</code><br>
-                2. <code>Equity Value = Enterprise Value - Posizione Finanziaria Netta (PFN)</code>
             </li>
         </ul>
     </div>
@@ -174,7 +164,13 @@ const TAG_MAPPING = {
     numeroDipendenti: ['itcc-ci:TotaleDipendentiNumeroMedio'],
     compensiAmministratori: ['itcc-ci:AmministratoriCompensi'],
     compensiSindaci: ['itcc-ci:SindaciCompensi'],
-    compensiRevisoreLegale: ['itcc-ci:RevisioneLegaleContiAnnualiValore']
+    compensiRevisoreLegale: ['itcc-ci:RevisioneLegaleContiAnnualiValore'],
+    crediti_clienti: ['itcc-ci:CreditiVersoClientiTotaleCreditiVersoClienti'],
+    debiti_fornitori: ['itcc-ci:DebitiDebitiVersoFornitoriTotaleDebitiVersoFornitori'],
+    rimanenze_totale: ['itcc-ci:TotaleRimanenze'],
+    rimanenze_materie_prime: ['itcc-ci:RimanenzeMateriePrimeSussidiarieConsumo'],
+    rimanenze_semilavorati: ['itcc-ci:RimanenzeProdottiCorsoLavorazioneSemilavorati'],
+    rimanenze_prodotti_finiti: ['itcc-ci:RimanenzeProdottiFinitiMerci']
 };
 
 let currentAnalysisData = null;
@@ -262,7 +258,6 @@ function estraiDatiDaUnSingoloFile(xmlString) {
     return { fiscalCode, companyName, fileYear: currentYear, yearlyData: [datiAnnoCorrente, datiAnnoPrecedente] };
 }
 
-
 // --- FLUSSO DI GESTIONE FILE E INTERFACCIA ---
 const dropArea = document.getElementById('drop-area');
 const fileInput = document.getElementById('file-input');
@@ -344,9 +339,11 @@ processBtn.addEventListener('click', async () => {
     }
 });
 
+// VERSIONE CORRETTA E COMPLETA
 function analizzaBilanci(ragioneSociale, codiceFiscale, datiAnnuali) {
     const analysisResults = datiAnnuali.map(x => {
         const m = { anno: x.anno };
+        // Dati Economici
         m['Valore Produzione'] = x.valore_produzione_totale || 0;
         m['EBITDA'] = (x.ebit || 0) + (x.ammortamenti_svalutazioni_totale || 0);
         m['EBIT'] = x.ebit || 0;
@@ -358,6 +355,8 @@ function analizzaBilanci(ragioneSociale, codiceFiscale, datiAnnuali) {
         m['di cui Accantonamenti per Rischi'] = x.accantonamenti_rischi || 0;
         m['di cui Costo TFR'] = x.tfr_costo || 0;
         m['Oneri Finanziari'] = x.oneri_finanziari || 0;
+        
+        // Dati Patrimoniali
         m['Totale Attivo'] = x.attivo || 0;
         m['Immobilizzazioni Totali'] = x.immobilizzazioni_totale || 0;
         m['di cui Immateriali'] = x.immobilizzazioni_immateriali || 0;
@@ -366,12 +365,25 @@ function analizzaBilanci(ragioneSociale, codiceFiscale, datiAnnuali) {
         m['Patrimonio Netto'] = x.patrimonio_netto || 0;
         m['di cui Capitale Sociale'] = x.capitale_sociale || 0;
         m['di cui Riserve'] = x.riserve || 0;
+        
+        // Dati Finanziari
         m['(A) Debiti Finanziari a Breve'] = x.debiti_banche_bt || 0;
         m['(B) Debiti Finanziari a M/L'] = x.debiti_banche_mlt || 0;
         m['Debiti Finanziari Totali'] = m['(A) Debiti Finanziari a Breve'] + m['(B) Debiti Finanziari a M/L'];
         m['(C) Attività Fin. non Immob.'] = x.attivita_finanziarie || 0;
         m['(D) Liquidità (Cassa e Banche)'] = x.cassa_banche || 0;
         m['Posizione Finanziaria Netta (PFN)'] = m['Debiti Finanziari Totali'] - m['(C) Attività Fin. non Immob.'] - m['(D) Liquidità (Cassa e Banche)'];
+        
+        // Dati CCN
+        m['Rimanenze'] = x.rimanenze_totale || 0;
+        m['di cui Materie Prime'] = x.rimanenze_materie_prime || 0;
+        m['di cui Semilavorati'] = x.rimanenze_semilavorati || 0;
+        m['di cui Prodotti Finiti'] = x.rimanenze_prodotti_finiti || 0;
+        m['Crediti v/Clienti'] = x.crediti_clienti || 0;
+        m['Debiti v/Fornitori'] = x.debiti_fornitori || 0;
+        m['Capitale Circolante Netto (CCN)'] = m['Rimanenze'] + m['Crediti v/Clienti'] - m['Debiti v/Fornitori'];
+
+        // Dati di Struttura e Indici
         m['(E) Totale Passività'] = x.passivo || (m['Totale Attivo'] || 0);
         m['(F) Patrimonio Netto'] = m['Patrimonio Netto'];
         m['Capitale di Terzi (E-F)'] = m['(E) Totale Passività'] - m['(F) Patrimonio Netto'];
@@ -380,21 +392,38 @@ function analizzaBilanci(ragioneSociale, codiceFiscale, datiAnnuali) {
         const capitaleInvestito = m['Patrimonio Netto'] + m['Posizione Finanziaria Netta (PFN)'];
         m['ROI (%)'] = capitaleInvestito !== 0 ? (m['EBIT'] / capitaleInvestito) : 0;
         m['Rapporto Capitale di Terzi / Capitale Proprio'] = m['Patrimonio Netto'] > 0 ? (m['Capitale di Terzi (E-F)'] / m['Patrimonio Netto']) : 0;
+        
+        // Dati Gestionali
         m['Numero Dipendenti'] = x.numeroDipendenti || null;
         m['Compensi Amministratori'] = x.compensiAmministratori || null;
         m['Compensi Organo di Controllo'] = x.compensiSindaci || null;
         m['Compensi Revisione Legale'] = x.compensiRevisoreLegale || null;
+        
         return m;
     });
+
+    // Calcolo Variazione CCN a posteriori
+    for (let i = 0; i < analysisResults.length - 1; i++) {
+        const currentYearCCN = analysisResults[i]['Capitale Circolante Netto (CCN)'];
+        const prevYearCCN = analysisResults[i+1]['Capitale Circolante Netto (CCN)'];
+        analysisResults[i]['Variazione CCN (ΔCCN)'] = currentYearCCN - prevYearCCN;
+    }
+    if (analysisResults.length > 0) {
+        analysisResults[analysisResults.length - 1]['Variazione CCN (ΔCCN)'] = null; 
+    }
 
     const ordineVoci = [
         'Valore Produzione', 'EBITDA', 'EBIT', 'Utile Netto', 'FCF Proxy (Utile + Amm.ti + Acc.ti)',
         'di cui Ammortamenti e Svalutazioni', 'di cui Accantonamenti per Rischi', 'di cui Costo TFR',
-        'Oneri Finanziari',
+        'SEZIONE CAPITALE CIRCOLANTE',
+        'Rimanenze', 'di cui Materie Prime', 'di cui Semilavorati', 'di cui Prodotti Finiti',
+        'Crediti v/Clienti', 'Debiti v/Fornitori', 'Capitale Circolante Netto (CCN)', 'Variazione CCN (ΔCCN)',
+        'SEZIONE PATRIMONIALE E FINANZIARIA',
         'Totale Attivo', 'Immobilizzazioni Totali', 'di cui Immateriali', 'di cui Materiali', 'di cui Finanziarie',
         'Patrimonio Netto', 'di cui Capitale Sociale', 'di cui Riserve',
         '(A) Debiti Finanziari a Breve', '(B) Debiti Finanziari a M/L', '(C) Attività Fin. non Immob.', '(D) Liquidità (Cassa e Banche)',
         'Posizione Finanziaria Netta (PFN)',
+        'SEZIONE INDICI E ALTRI INDICATORI',
         '(E) Totale Passività', '(F) Patrimonio Netto', 'Capitale di Terzi (E-F)',
         'Costo del Debito (%)', 'ROE (%)', 'ROI (%)', 'Rapporto Capitale di Terzi / Capitale Proprio'
     ];
@@ -412,15 +441,20 @@ function generaReportHTML(analysis) {
     html += `<table><thead><tr><th>Voce</th>`;
     anni.forEach((anno, index) => {
         html += `<th class="text-right">${anno}</th>`;
-        if (index < anni.length - 1) html += `<th class="text-right">Variazione %</th>`;
+        if (index < anni.length - 1) html += `<th class="text-right">Variazione</th>`;
     });
     html += `</tr></thead><tbody>`;
 
     ordineVoci.forEach(voce => {
+        if (voce.startsWith('SEZIONE')) {
+            html += `<tr><td colspan="${2 * anni.length}" class="sezione-titolo">${voce.replace('SEZIONE ', '')}</td></tr>`;
+            return;
+        }
+
         const hasData = datiCalcolati.some(d => d[voce] != null && d[voce] !== 0);
         if(!hasData && !voce.startsWith('di cui') && !voce.startsWith('(')) return;
 
-        const isMain = ['EBITDA', 'EBIT', 'Utile Netto', 'FCF Proxy (Utile + Amm.ti + Acc.ti)', 'Totale Attivo', 'Immobilizzazioni Totali', 'Patrimonio Netto', 'Posizione Finanziaria Netta (PFN)', 'Capitale di Terzi (E-F)'].includes(voce);
+        const isMain = ['EBITDA', 'EBIT', 'Utile Netto', 'FCF Proxy (Utile + Amm.ti + Acc.ti)', 'Capitale Circolante Netto (CCN)', 'Variazione CCN (ΔCCN)', 'Totale Attivo', 'Immobilizzazioni Totali', 'Patrimonio Netto', 'Posizione Finanziaria Netta (PFN)', 'Capitale di Terzi (E-F)'].includes(voce);
         const isSub = voce.startsWith('di cui');
         const isDetail = /^\([A-Z]\)/.test(voce);
         const rowClass = isMain ? 'voce-principale' : (isSub ? 'voce-sub' : (isDetail ? 'voce-dettaglio' : ''));
@@ -431,13 +465,23 @@ function generaReportHTML(analysis) {
             html += `<td class="text-right">${formatValue(voce, currentValue)}</td>`;
             if (index < datiCalcolati.length - 1) {
                 const prevValue = datiCalcolati[index + 1]?.[voce];
-                let delta = 0;
-                if (prevValue != null && prevValue !== 0) {
-                    delta = (currentValue - prevValue) / Math.abs(prevValue);
-                } else if (currentValue !== 0) {
-                    delta = Infinity;
+                let deltaHtml = 'N/A';
+                if (currentValue != null && prevValue != null) {
+                    const deltaAbs = currentValue - prevValue;
+                    const deltaPerc = prevValue !== 0 ? deltaAbs / Math.abs(prevValue) : Infinity;
+                    const deltaAbsFormatted = `<span class="${deltaAbs >= 0 ? 'delta-pos' : 'delta-neg'}">${formatValue('', deltaAbs)}</span>`;
+                    const deltaPercFormatted = formatDeltaPercentage(deltaPerc);
+                    
+                    if (voce.includes('%') || voce.includes('Rapporto')) {
+                         deltaHtml = deltaAbsFormatted;
+                    } else if (voce === 'Variazione CCN (ΔCCN)') {
+                        deltaHtml = deltaAbsFormatted;
+                    }
+                    else {
+                        deltaHtml = `${deltaAbsFormatted} (${deltaPercFormatted})`;
+                    }
                 }
-                html += `<td class="text-right">${formatDeltaPercentage(delta)}</td>`;
+                html += `<td class="text-right">${deltaHtml}</td>`;
             }
         });
         html += `</tr>`;
@@ -450,7 +494,7 @@ function generaReportHTML(analysis) {
         html += `<table><thead><tr><th>Voce</th>`;
         anni.forEach((anno, index) => {
             html += `<th class="text-right">${anno}</th>`;
-            if (index < anni.length - 1) html += `<th class="text-right">Variazione %</th>`;
+            if (index < anni.length - 1) html += `<th class="text-right">Variazione</th>`;
         });
         html += `</tr></thead><tbody>`;
         
@@ -464,13 +508,15 @@ function generaReportHTML(analysis) {
                     html += `<td class="text-right">${currentValue != null ? (formatAsInteger ? Math.round(currentValue) : formatValue('', currentValue)) : 'N/A'}</td>`;
                     if (index < datiCalcolati.length - 1) {
                         const prevValue = datiCalcolati[index + 1]?.[voce];
-                        let delta = 0;
-                         if (prevValue != null && prevValue !== 0) {
-                            delta = (currentValue - prevValue) / Math.abs(prevValue);
-                        } else if (currentValue !== 0) {
-                            delta = Infinity;
+                        let deltaHtml = 'N/A';
+                         if (prevValue != null && currentValue != null) {
+                            const deltaAbs = currentValue - prevValue;
+                            const deltaPerc = prevValue !== 0 ? deltaAbs / Math.abs(prevValue) : Infinity;
+                            const deltaAbsFormatted = `<span class="${deltaAbs >= 0 ? 'delta-pos' : 'delta-neg'}">${formatAsInteger ? Math.round(deltaAbs) : formatValue('', deltaAbs)}</span>`;
+                            const deltaPercFormatted = formatDeltaPercentage(deltaPerc);
+                            deltaHtml = `${deltaAbsFormatted} (${deltaPercFormatted})`;
                         }
-                        html += `<td class="text-right">${formatDeltaPercentage(delta)}</td>`;
+                        html += `<td class="text-right">${deltaHtml}</td>`;
                     }
                 });
                 html += `</tr>`;
@@ -550,31 +596,34 @@ Stai assistendo un professionista nella valutazione del capitale economico di un
 # AZIONE
 Sulla base dei dati JSON forniti, esegui le seguenti analisi e valutazioni:
 
-### 1. Analisi Economico-Finanziaria Sintetica
-Commenta brevemente i dati storici per fornire un contesto alla valutazione:
-- **Andamento Generale:** Analizza l'evoluzione del Valore della Produzione e della redditività (EBITDA, Utile Netto).
-- **Struttura Finanziaria:** Commenta il livello di patrimonializzazione (Patrimonio Netto) e di indebitamento (Posizione Finanziaria Netta).
+### 1. Analisi Economico-Finanziaria Approfondita
+Analizza in modo dettagliato i dati storici:
+- **Analisi della Redditività:** Commenta l'andamento del Valore della Produzione, dei margini (EBITDA, EBIT, Utile Netto) e degli indici di redditività (ROE, ROI).
+- **Analisi del Capitale Circolante Netto (CCN):**
+  - Descrivi la composizione del CCN nell'ultimo anno (peso di Rimanenze, Crediti e Debiti).
+  - Interpreta la **Variazione del CCN (ΔCCN)**: spiega se la gestione operativa ha assorbito o generato liquidità e quali componenti hanno inciso maggiormente.
+- **Analisi della Struttura Finanziaria:** Commenta il livello di patrimonializzazione (Patrimonio Netto), il rapporto di indebitamento (Capitale di Terzi / Capitale Proprio) e la Posizione Finanziaria Netta (PFN).
 
 ### 2. Valutazione d'Azienda (Equity Value)
-Stima il valore del capitale economico applicando i seguenti metodi, che riflettono le prassi italiane per le PMI. Per ciascun metodo, indica la formula, esplicita i parametri utilizzati e mostra chiaramente i calcoli.
+Stima il valore del capitale economico applicando i seguenti metodi. Per ciascun metodo, indica la formula, esplicita i parametri utilizzati e mostra chiaramente i calcoli.
 
 - **Metodo Patrimoniale Complesso:**
   - Formula: \`Equity Value = Patrimonio Netto Rettificato (K)\`.
-  - Spiegazione: Utilizza il valore di 'K' fornito dall'utente. Questo rappresenta il valore tangibile dell'azienda a valori di mercato.
+  - Spiegazione: Utilizza il valore di 'K' fornito dall'utente.
 
 - **Metodo Reddituale Puro (Rendita Limitata):**
-  - Spiegazione: Questo metodo calcola il valore attuale dei redditi normali attesi (R) per un numero finito di anni (n), attualizzati al tasso (i').
+  - Spiegazione: Calcola il valore attuale dei redditi normali attesi (R) per un numero finito di anni (n), attualizzati al tasso (i').
   - **Passo 1: Calcolo del coefficiente di attualizzazione \`a(n, i')\`**
     - Formula: \`a(n, i') = [1 - (1 + i')^-n] / i'\`
   - **Passo 2: Calcolo dell'Equity Value**
     - Formula: \`Equity Value = Reddito Medio Atteso (R) * a(n, i')\`
 
 - **Metodo Misto Patrimoniale-Reddituale (con stima autonoma del Goodwill):**
-  - Spiegazione: Questo metodo unisce il valore patrimoniale (K) con il valore del goodwill, calcolato come attualizzazione del sovra-reddito per un periodo limitato (n).
+  - Spiegazione: Unisce il valore patrimoniale (K) con il valore del goodwill, calcolato come attualizzazione del sovra-reddito per un periodo limitato (n).
   - **Passo 1: Calcolo del Sovra-Reddito.**
     - Formula: \`Sovra-Reddito = Reddito Medio Atteso (R) - (Patrimonio Netto Rettificato (K) * Tasso di Remunerazione (i))\`.
   - **Passo 2: Calcolo del Goodwill.**
-    - Formula: \`Goodwill = Sovra-Reddito * a(n, i')\` (usa lo stesso coefficiente calcolato nel metodo reddituale).
+    - Formula: \`Goodwill = Sovra-Reddito * a(n, i')\` (usa lo stesso coefficiente calcolato prima).
   - **Passo 3: Calcolo dell'Equity Value.**
     - Formula: \`Equity Value = Patrimonio Netto Rettificato (K) + Goodwill\`.
 
@@ -587,9 +636,9 @@ Stima il valore del capitale economico applicando i seguenti metodi, che riflett
 # FORMATO DI OUTPUT
 Restituisci una relazione in formato HTML ben formattato. Usa <h3> per i titoli principali e <h4> per i sottotitoli. La struttura deve essere:
 1.  **Sintesi dei Parametri di Valutazione** (elenca i dati dalla sezione 'valuationInputs').
-2.  **Analisi Economico-Finanziaria Sintetica**
+2.  **Analisi Economico-Finanziaria** (includendo l'analisi del CCN).
 3.  **Applicazione dei Metodi di Valutazione** (con sottosezioni per ogni metodo).
-4.  **Sintesi dei Risultati e Conclusioni** (includi una tabella riassuntiva dei valori ottenuti, proponi un **VALORE MEDIO** come stima finale, escludendo eventuali valori palesemente fuori scala, e aggiungi un breve commento sulla coerenza dei risultati).
+4.  **Sintesi dei Risultati e Conclusioni** (includi una tabella riassuntiva dei valori ottenuti, proponi un **VALORE MEDIO** come stima finale, e aggiungi un breve commento sulla coerenza dei risultati).
 
 DATI DA ANALIZZARE:
 ${JSON.stringify(jsonData, null, 2)}
