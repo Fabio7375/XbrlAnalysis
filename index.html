@@ -42,7 +42,7 @@
     .section-container { display: none; margin-top: 40px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
     .input-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .input-group { display: flex; flex-direction: column; }
-    .input-group:nth-child(4), .input-group:nth-child(5), .input-group:nth-child(6), .input-group:nth-child(7) { margin-top: 10px; }
+    .input-group:nth-child(n+4) { margin-top: 10px; }
     @media (max-width: 768px) { .input-grid { grid-template-columns: 1fr; } .input-group { margin-top: 10px !important; } }
     .input-group label { font-weight: bold; margin-bottom: 5px; color: var(--primary-color); }
     .input-group input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; }
@@ -80,6 +80,16 @@
         padding-left: 20px;
         list-style-type: square;
     }
+    .input-section-title {
+        grid-column: 1 / -1;
+        background-color: var(--primary-color);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
@@ -93,38 +103,128 @@
     </div>
 
     <div class="info-box">
-        <h3>Metodologie di Valutazione Applicate</h3>
-        <p>L'analisi automatica utilizzerà i seguenti metodi di valutazione, in linea con i Principi Italiani di Valutazione (PIV). Le formule sono state adattate ai dati disponibili nel formato XBRL.</p>
-        <h4>1. Metodo Reddituale Puro (Rendita Limitata)</h4>
-        <p>Questo metodo considera il valore dell'impresa pari al valore attuale dei redditi normali attesi (R) per un numero limitato di anni ('n').</p>
+        <h3>Metodologie di Valutazione Applicate secondo PIV</h3>
+        <p>L'analisi automatica utilizzerà i seguenti metodi di valutazione, conformi ai Principi Italiani di Valutazione (PIV):</p>
+        
+        <h4>1. Metodo Patrimoniale Complesso</h4>
+        <p>Valore dell'azienda come valore di ricostituzione del patrimonio nella prospettiva di funzionamento.</p>
         <ul>
-            <li><strong>Formula:</strong> <code>Equity Value = Reddito Medio Atteso (R) * a(n, i')</code></li>
-            <li><strong>Coefficiente 'a(n, i')':</strong> È il fattore che attualizza una rendita. <br><code>a(n, i') = [1 - (1 + i')^-n] / i'</code></li>
+            <li><strong>Formula:</strong> <code>V = K' (Patrimonio Netto Rettificato)</code></li>
+            <li>Considera il patrimonio rivalutato a valori correnti di mercato</li>
         </ul>
-        <h4>2. Metodo Misto Patrimoniale-Reddituale</h4>
-        <p>Combina il valore tangibile del patrimonio (K) con il valore intangibile derivante dalla capacità di generare extra-profitti (Goodwill) per un periodo limitato ('n').</p>
+
+        <h4>2. Metodo Reddituale</h4>
+        <p>Valore basato sulla capacità di generare reddito futuro, con processo di normalizzazione.</p>
         <ul>
-            <li><strong>Formula Base:</strong> <code>Valore = Patrimonio Netto Rettificato (K) + Goodwill</code></li>
-            <li><strong>Calcolo del Goodwill:</strong> Si basa sul 'sovra-reddito', cioè la differenza tra il reddito atteso e la normale remunerazione del capitale investito.
-                <ul>
-                    <li><code>Sovra-Reddito = R - (K * i_congruo)</code> <small>(dove i_congruo è il tasso di remunerazione del capitale)</small></li>
-                    <li><code>Goodwill = Sovra-Reddito * a(n, i')</code></li>
-                </ul>
-            </li>
+            <li><strong>Rendita Perpetua:</strong> <code>V = R/i</code></li>
+            <li><strong>Rendita Limitata:</strong> <code>V = R × a(n,i')</code> dove <code>a(n,i') = [1-(1+i')^-n]/i'</code></li>
+        </ul>
+
+        <h4>3. Metodo Misto U.E.C. (Union Européenne des Experts)</h4>
+        <p>Combina valore patrimoniale con goodwill/badwill da sovrareddito.</p>
+        <ul>
+            <li><strong>Formula:</strong> <code>W = K' + [(R - i×K') × a(n,i')] + SA</code></li>
+            <li>Dove il sovrareddito può generare goodwill (se positivo) o badwill (se negativo)</li>
+        </ul>
+
+        <h4>4. Metodo DCF Semplificato</h4>
+        <p>Attualizzazione dei flussi di cassa futuri con WACC.</p>
+        <ul>
+            <li><strong>Formula:</strong> <code>EV = Σ[FCF/(1+WACC)^t] + TV</code>, poi <code>W = EV - PFN</code></li>
+        </ul>
+
+        <h4>5. Metodo Multipli</h4>
+        <p>Valutazione tramite multipli di mercato settoriali.</p>
+        <ul>
+            <li><strong>Formula:</strong> <code>W = (EBITDA × Multiplo EV/EBITDA) - PFN</code></li>
         </ul>
     </div>
 
     <div id="report-container"></div>
     
     <div id="manual-inputs-container" class="section-container">
-      <h2>Parametri per la Valutazione d'Azienda (Input Manuale)</h2>
+      <h2>Parametri per la Valutazione d'Azienda secondo PIV</h2>
       <div class="input-grid">
-        <div class="input-group"><label for="patrimonioNettoRettificato">PN Rettificato (K) (€)</label><input type="number" id="patrimonioNettoRettificato" placeholder="Es. 175683"><span class="helper-text">PN a valori correnti.</span></div>
-        <div class="input-group"><label for="redditoMedioProspettico">Reddito Medio Atteso (R) (€)</label><input type="number" id="redditoMedioProspettico" placeholder="Es. 15158"><span class="helper-text">Utile normalizzato atteso.</span></div>
-        <div class="input-group"><label for="tassoAttualizzazione">Tasso di Attualizzazione (i') (%)</label><input type="number" id="tassoAttualizzazione" placeholder="Es. 7.45" step="any"><span class="helper-text">Tasso per scontare i flussi futuri.</span></div>
-        <div class="input-group"><label for="tassoRemunerazione">Tasso Remunerazione K (i) (%)</label><input type="number" id="tassoRemunerazione" placeholder="Es. 5.00" step="any"><span class="helper-text">Rendimento "normale" del capitale.</span></div>
-        <div class="input-group"><label for="periodoLimitato">Periodo Rendita Limitata (n)</label><input type="number" id="periodoLimitato" placeholder="Es. 5"><span class="helper-text">Anni per metodi reddituali/misti.</span></div>
-        <div class="input-group"><label for="multiploEbitda">Multiplo EV/EBITDA</label><input type="number" id="multiploEbitda" placeholder="Es. 7.05" step="any"><span class="helper-text">Multiplo medio di settore.</span></div>
+        <div class="input-section-title">PARAMETRI BASE VALUTAZIONE</div>
+        <div class="input-group">
+          <label for="patrimonioNettoRettificato">PN Rettificato (K') (€)</label>
+          <input type="number" id="patrimonioNettoRettificato" placeholder="Es. 175683">
+          <span class="helper-text">Patrimonio Netto a valori correnti.</span>
+        </div>
+        <div class="input-group">
+          <label for="redditoMedioProspettico">Reddito Medio Atteso (R) (€)</label>
+          <input type="number" id="redditoMedioProspettico" placeholder="Es. 15158">
+          <span class="helper-text">Utile normalizzato atteso.</span>
+        </div>
+        <div class="input-group">
+          <label for="tassoAttualizzazione">Tasso Attualizzazione (i') (%)</label>
+          <input type="number" id="tassoAttualizzazione" placeholder="Es. 7.45" step="any">
+          <span class="helper-text">Tasso per scontare sovrareddito.</span>
+        </div>
+        <div class="input-group">
+          <label for="tassoRemunerazione">Tasso Remunerazione K (i) (%)</label>
+          <input type="number" id="tassoRemunerazione" placeholder="Es. 5.00" step="any">
+          <span class="helper-text">Rendimento "normale" del capitale.</span>
+        </div>
+        <div class="input-group">
+          <label for="periodoLimitato">Periodo Rendita (n anni)</label>
+          <input type="number" id="periodoLimitato" placeholder="Es. 5">
+          <span class="helper-text">Anni per metodi reddituali/misti.</span>
+        </div>
+        <div class="input-group">
+          <label for="multiploEbitda">Multiplo EV/EBITDA</label>
+          <input type="number" id="multiploEbitda" placeholder="Es. 7.05" step="any">
+          <span class="helper-text">Multiplo medio di settore.</span>
+        </div>
+
+        <div class="input-section-title">PARAMETRI WACC/CAPM</div>
+        <div class="input-group">
+          <label for="tassoRiskFree">Tasso Risk-Free (Rf) (%)</label>
+          <input type="number" id="tassoRiskFree" placeholder="Es. 2.50" step="any">
+          <span class="helper-text">Rendimento BOT/BTP decennale.</span>
+        </div>
+        <div class="input-group">
+          <label for="betaAziendale">Beta (β)</label>
+          <input type="number" id="betaAziendale" placeholder="Es. 1.25" step="any">
+          <span class="helper-text">Beta settoriale o aziendale.</span>
+        </div>
+        <div class="input-group">
+          <label for="premioRischio">Premio Rischio Mercato (Rm-Rf) (%)</label>
+          <input type="number" id="premioRischio" placeholder="Es. 5.00" step="any">
+          <span class="helper-text">Premio rischio equity italiano.</span>
+        </div>
+        <div class="input-group">
+          <label for="costoDebito">Costo del Debito (Kd) (%)</label>
+          <input type="number" id="costoDebito" placeholder="Es. 3.50" step="any">
+          <span class="helper-text">Tasso medio sui debiti finanziari.</span>
+        </div>
+        <div class="input-group">
+          <label for="aliquotaFiscale">Aliquota Fiscale (t) (%)</label>
+          <input type="number" id="aliquotaFiscale" placeholder="Es. 27.50" step="any">
+          <span class="helper-text">IRES + IRAP effettiva.</span>
+        </div>
+        <div class="input-group">
+          <label for="rapportoDebtEquity">Target D/E</label>
+          <input type="number" id="rapportoDebtEquity" placeholder="Es. 0.40" step="any">
+          <span class="helper-text">Rapporto Debito/Equity target.</span>
+        </div>
+
+        <div class="input-section-title">PREMI SPECIFICI PMI E SURPLUS ASSETS</div>
+        <div class="input-group">
+          <label for="premioIlliquidita">Premio Illiquidità (%)</label>
+          <input type="number" id="premioIlliquidita" placeholder="Es. 2.50" step="any">
+          <span class="helper-text">Premio illiquidità PMI (2-4%).</span>
+        </div>
+        <div class="input-group">
+          <label for="premioDimensione">Premio Dimensione (%)</label>
+          <input type="number" id="premioDimensione" placeholder="Es. 1.50" step="any">
+          <span class="helper-text">Premio rischio dimensione PMI (1-3%).</span>
+        </div>
+        <div class="input-group">
+          <label for="surplusAssets">Surplus Assets (SA) (€)</label>
+          <input type="number" id="surplusAssets" placeholder="Es. 50000">
+          <span class="helper-text">Beni accessori non operativi.</span>
+        </div>
       </div>
       <button id="generate-final-json-btn" class="btn">Genera e Includi Dati Valutazione nel JSON</button>
     </div>
@@ -530,6 +630,13 @@ function generaReportHTML(analysis) {
 
 function generaJsonFinale() {
     if (!currentAnalysisData) return;
+    
+    // Pre-popola il costo del debito dal calcolo XBRL se non inserito manualmente
+    const costoDebitoCalcolato = currentAnalysisData.datiCalcolati[0]['Costo del Debito (%)'] * 100; // Converti in percentuale
+    if (!document.getElementById('costoDebito').value && costoDebitoCalcolato && costoDebitoCalcolato > 0) {
+        document.getElementById('costoDebito').value = costoDebitoCalcolato.toFixed(2);
+    }
+    
     const manualInputs = {
         patrimonioNettoRettificato: parseFloat(document.getElementById('patrimonioNettoRettificato').value) || null,
         redditoMedioProspettico: parseFloat(document.getElementById('redditoMedioProspettico').value) || null,
@@ -537,6 +644,17 @@ function generaJsonFinale() {
         tassoRemunerazione: parseFloat(document.getElementById('tassoRemunerazione').value) || null,
         periodoLimitato: parseFloat(document.getElementById('periodoLimitato').value) || null,
         multiploEbitda: parseFloat(document.getElementById('multiploEbitda').value) || null,
+        // Parametri WACC/CAPM
+        tassoRiskFree: parseFloat(document.getElementById('tassoRiskFree').value) || null,
+        betaAziendale: parseFloat(document.getElementById('betaAziendale').value) || null,
+        premioRischio: parseFloat(document.getElementById('premioRischio').value) || null,
+        costoDebito: parseFloat(document.getElementById('costoDebito').value) || null,
+        aliquotaFiscale: parseFloat(document.getElementById('aliquotaFiscale').value) || null,
+        rapportoDebtEquity: parseFloat(document.getElementById('rapportoDebtEquity').value) || null,
+        // Premi specifici PMI e Surplus Assets
+        premioIlliquidita: parseFloat(document.getElementById('premioIlliquidita').value) || null,
+        premioDimensione: parseFloat(document.getElementById('premioDimensione').value) || null,
+        surplusAssets: parseFloat(document.getElementById('surplusAssets').value) || null,
     };
 
     const jsonOutput = {
@@ -586,63 +704,157 @@ async function interrogaGPT(jsonData) {
 
     aiResponseContainer.innerHTML = '<div class="spinner"></div><p style="text-align:center;">Elaborazione in corso... L\'analisi potrebbe richiedere qualche istante.</p>';
     
-    const prompt = `
-# RUOLO
-Agisci come un esperto valutatore d’azienda secondo i Principi Italiani di Valutazione (PIV), con comprovata esperienza in perizie di stima per PMI non quotate, ispirandoti alle metodologie e alla logica dello strumento di valutazione fornito.
+    const prompt = `# 🎯 PERITO VALUTATORE AZIENDALE - ANALISI COMPLETA PIV
 
-# CONTESTO
-Stai assistendo un professionista nella valutazione del capitale economico di una PMI italiana. I dati forniti includono una serie storica di dati di bilancio e parametri di valutazione inseriti manualmente, che riflettono le variabili usate in strumenti professionali (R, K, n, i, i'). Il tuo compito è redigere una relazione tecnica completa, chiara e ben strutturata in HTML.
+## **CONTESTO E RUOLO**
+Sei un perito valutatore aziendale certificato che opera secondo i Principi Italiani di Valutazione (PIV). Devi redigere una relazione di valutazione completa e professionale per una PMI italiana, applicando rigorosamente le metodologie previste dai PIV.
 
-# AZIONE
-Sulla base dei dati JSON forniti, esegui le seguenti analisi e valutazioni:
+## **METODOLOGIE PIV DA APPLICARE**
 
-### 1. Analisi Economico-Finanziaria Approfondita
-Analizza in modo dettagliato i dati storici:
-- **Analisi della Redditività:** Commenta l'andamento del Valore della Produzione, dei margini (EBITDA, EBIT, Utile Netto) e degli indici di redditività (ROE, ROI).
-- **Analisi del Capitale Circolante Netto (CCN):**
-  - Descrivi la composizione del CCN nell'ultimo anno (peso di Rimanenze, Crediti e Debiti).
-  - Interpreta la **Variazione del CCN (ΔCCN)**: spiega se la gestione operativa ha assorbito o generato liquidità e quali componenti hanno inciso maggiormente.
-- **Analisi della Struttura Finanziaria:** Commenta il livello di patrimonializzazione (Patrimonio Netto), il rapporto di indebitamento (Capitale di Terzi / Capitale Proprio) e la Posizione Finanziaria Netta (PFN).
+### **1. METODO PATRIMONIALE COMPLESSO**
+**Logica:** Valore dell'azienda = valore di ricostituzione del patrimonio nella prospettiva di funzionamento
+**Formula:** V = K' (Patrimonio Netto Rettificato)
+- Usa il valore "patrimonioNettoRettificato" fornito dall'utente
+- Spiega che rappresenta il patrimonio rivalutato a valori correnti di mercato
 
-### 2. Valutazione d'Azienda (Equity Value)
-Stima il valore del capitale economico applicando i seguenti metodi. Per ciascun metodo, indica la formula, esplicita i parametri utilizzati e mostra chiaramente i calcoli.
+### **2. METODO REDDITUALE**
+**Logica:** Valore basato sulla capacità di generare reddito futuro
+**Formula Rendita Perpetua:** V = R/i
+**Formula Rendita Limitata:** V = R × a(n,i) dove a(n,i) = [1-(1+i)^-n]/i
 
-- **Metodo Patrimoniale Complesso:**
-  - Formula: \`Equity Value = Patrimonio Netto Rettificato (K)\`.
-  - Spiegazione: Utilizza il valore di 'K' fornito dall'utente.
+**Processo normalizzazione obbligatorio:**
+- Elimina componenti straordinarie e non ricorrenti
+- Neutralizza politiche di bilancio distorsive  
+- Depura interferenze tributarie
+- Considera solo gestione caratteristica
 
-- **Metodo Reddituale Puro (Rendita Limitata):**
-  - Spiegazione: Calcola il valore attuale dei redditi normali attesi (R) per un numero finito di anni (n), attualizzati al tasso (i').
-  - **Passo 1: Calcolo del coefficiente di attualizzazione \`a(n, i')\`**
-    - Formula: \`a(n, i') = [1 - (1 + i')^-n] / i'\`
-  - **Passo 2: Calcolo dell'Equity Value**
-    - Formula: \`Equity Value = Reddito Medio Atteso (R) * a(n, i')\`
+### **3. METODO MISTO U.E.C. (Union Européenne des Experts)**
+**Formula completa:** W = K' + [(R - i×K') × a(n,i')] + SA
+Dove:
+- K' = Patrimonio rettificato strumentale  
+- R = Reddito medio normale atteso
+- i = Tasso rendimento normale (settoriale)
+- i' = Tasso attualizzazione sovrareddito
+- (R - i×K') = Sovrareddito (se positivo = Goodwill, se negativo = Badwill)
+- a(n,i') = Fattore attualizzazione rendita limitata
+- SA = Surplus Assets (beni accessori) - usa "surplusAssets" se fornito
 
-- **Metodo Misto Patrimoniale-Reddituale (con stima autonoma del Goodwill):**
-  - Spiegazione: Unisce il valore patrimoniale (K) con il valore del goodwill, calcolato come attualizzazione del sovra-reddito per un periodo limitato (n).
-  - **Passo 1: Calcolo del Sovra-Reddito.**
-    - Formula: \`Sovra-Reddito = Reddito Medio Atteso (R) - (Patrimonio Netto Rettificato (K) * Tasso di Remunerazione (i))\`.
-  - **Passo 2: Calcolo del Goodwill.**
-    - Formula: \`Goodwill = Sovra-Reddito * a(n, i')\` (usa lo stesso coefficiente calcolato prima).
-  - **Passo 3: Calcolo dell'Equity Value.**
-    - Formula: \`Equity Value = Patrimonio Netto Rettificato (K) + Goodwill\`.
+### **4. METODO DCF SEMPLIFICATO**
+**Formula:** EV = Σ[FCF/(1+WACC)^t] + TV, poi W = EV - PFN
+- Usa "FCF Proxy (Utile + Amm.ti + Acc.ti)" dai dati storici
+- Stima crescita sostenibile basata su ROE e retention rate
+- **WACC:** (E/V × Ke) + (D/V × Kd × (1-t))
+- **Ke (CAPM PMI):** Rf + β(Rm-Rf) + premioIlliquidita + premioDimensione
 
-- **Metodo dei Multipli (EV/EBITDA):**
-  - **Passo 1: Calcolo Enterprise Value (EV).**
-    - Formula: \`EV = EBITDA (ultimo anno) * Multiplo EV/EBITDA\`.
-  - **Passo 2: Calcolo Equity Value.**
-    - Formula: \`Equity Value = EV - Posizione Finanziaria Netta (PFN) (ultimo anno)\`.
+### **5. METODO MULTIPLI**
+**Formula:** W = (EV da multipli) - PFN
+- EV = EBITDA × Multiplo EV/EBITDA settoriale
+- Utilizza il "multiploEbitda" fornito dall'utente
 
-# FORMATO DI OUTPUT
-Restituisci una relazione in formato HTML ben formattato. Usa <h3> per i titoli principali e <h4> per i sottotitoli. La struttura deve essere:
-1.  **Sintesi dei Parametri di Valutazione** (elenca i dati dalla sezione 'valuationInputs').
-2.  **Analisi Economico-Finanziaria** (includendo l'analisi del CCN).
-3.  **Applicazione dei Metodi di Valutazione** (con sottosezioni per ogni metodo).
-4.  **Sintesi dei Risultati e Conclusioni** (includi una tabella riassuntiva dei valori ottenuti, proponi un **VALORE MEDIO** come stima finale, e aggiungi un breve commento sulla coerenza dei risultati).
+## **TASSO DI ATTUALIZZAZIONE - CAPM ESTESO PER PMI**
+**Formula completa:** Ke = Rf + β(Rm - Rf) + Premio_Illiquidità + Premio_Dimensione
+- **Rf:** tassoRiskFree (BOT/BTP decennale)
+- **β:** betaAziendale (settoriale o specifico)
+- **(Rm-Rf):** premioRischio (equity premium storico)
+- **Premio_Illiquidità:** premioIlliquidita (2-4% tipico per PMI)
+- **Premio_Dimensione:** premioDimensione (1-3% per small cap)
 
-DATI DA ANALIZZARE:
-${JSON.stringify(jsonData, null, 2)}
-    `;
+## **STRUTTURA RELAZIONE PIV**
+
+### **PARTE I: PREMESSA**
+- Oggetto dell'incarico e finalità
+- Criteri e principi seguiti (riferimento esplicito ai PIV)
+- Base informativa utilizzata
+
+### **PARTE II: ANALISI ECONOMICO-FINANZIARIA**
+**Analisi trend storici (ultimi 2-3 anni):**
+- **Economici:** Ricavi, EBITDA, EBIT, Utile Netto, marginalità %
+- **Patrimoniali:** Patrimonio Netto, Totale Attivo, composizione immobilizzazioni
+- **Finanziari:** PFN, liquidità, indebitamento, CCN e sue variazioni
+- **Indici:** ROE, ROI, Debt/Equity, rotazione crediti/debiti
+
+**Focus speciale su Capitale Circolante:**
+- Analizza composizione CCN (Rimanenze + Crediti - Debiti fornitori)
+- Interpreta Variazione CCN: assorbimento/generazione liquidità
+- Commenta efficienza gestionale (giorni di incasso/pagamento)
+
+### **PARTE III: PROCESSO DI NORMALIZZAZIONE**
+Prima di applicare metodi reddituali:
+1. **Rettifiche per componenti straordinarie** (eliminazione)
+2. **Neutralizzazione politiche contabili** (es. ammortamenti accelerati)
+3. **Eliminazione interferenze tributarie**
+4. **Separazione gestione accessoria** da caratteristica
+5. **Determinazione reddito normalizzato "R"**
+
+### **PARTE IV: APPLICAZIONE METODI VALUTATIVI**
+
+Per OGNI metodo applica questa struttura:
+1. **Spiegazione teorica** del metodo secondo PIV
+2. **Formula matematica** esplicita  
+3. **Parametri utilizzati** con giustificazione
+4. **Calcoli step-by-step** mostrati chiaramente
+5. **Risultato** con considerazioni critiche
+
+### **PARTE V: SINTESI E CONCLUSIONI**
+- **Tabella riassuntiva** tutti i valori ottenuti
+- **Range di valore** ragionevole (min-max)
+- **Valore finale** come media ponderata ragionata
+- **Considerazioni finali** su attendibilità e limiti
+
+## **FORMULE MATEMATICHE STANDARD**
+
+**Fattore attualizzazione rendita limitata:**
+\`\`\`
+a(n,i) = [1 - (1+i)^-n] / i
+\`\`\`
+
+**WACC:**
+\`\`\`
+WACC = (E/V × Ke) + (D/V × Kd × (1-t))
+\`\`\`
+
+**CAPM per PMI:**
+\`\`\`
+Ke = Rf + β(Rm-Rf) + premioIlliquidita + premioDimensione
+\`\`\`
+
+**Crescita sostenibile:**
+\`\`\`
+g = ROE × (1 - Dividend Payout Ratio)
+\`\`\`
+
+## **PARAMETRI DA UTILIZZARE**
+Dal JSON valuationInputs:
+- **Base:** patrimonioNettoRettificato → K', redditoMedioProspettico → R, tassoAttualizzazione → i', tassoRemunerazione → i, periodoLimitato → n, multiploEbitda
+- **WACC/CAPM:** tassoRiskFree → Rf, betaAziendale → β, premioRischio → (Rm-Rf), costoDebito → Kd (pre-popolato da XBRL), aliquotaFiscale → t, rapportoDebtEquity → D/E
+- **Premi PMI:** premioIlliquidita (2-4%), premioDimensione (1-3%)
+- **Surplus Assets:** surplusAssets → SA (beni accessori non operativi)
+
+**NOTA:** Il costoDebito è automaticamente calcolato dai dati XBRL come rapporto Oneri Finanziari / Debiti Finanziari Totali, ma l'utente può modificarlo se necessario.
+
+## **FORMATO OUTPUT**
+Relazione in HTML professionale con:
+- <h3> per sezioni principali
+- <h4> per sottosezioni  
+- Tabelle per dati numerici
+- **Grassetto** per risultati chiave
+- Formule in formato \`codice\`
+
+## **CONTROLLI QUALITÀ PIV**
+✅ Ogni calcolo deve mostrare la formula
+✅ Ogni parametro deve essere giustificato  
+✅ Nessuna stima arbitraria
+✅ Coerenza metodologica tra approcci
+✅ Evidenziare limitazioni e assunzioni
+
+## **CHIUSURA OBBLIGATORIA**
+Termina sempre con: 
+*"Relazione redatta secondo i Principi Italiani di Valutazione (PIV) - Dott. Perito Valutatore Aziendale - ${new Date().toLocaleDateString('it-IT')}"*
+
+---
+
+**DATI DA ANALIZZARE:**
+${JSON.stringify(jsonData, null, 2)}`;
 
     try {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -651,7 +863,8 @@ ${JSON.stringify(jsonData, null, 2)}
             body: JSON.stringify({
                 model: "gpt-4o",
                 messages: [{ role: "user", content: prompt }],
-                temperature: 0.1
+                temperature: 0.1,
+                max_tokens: 4000
             })
         });
 
