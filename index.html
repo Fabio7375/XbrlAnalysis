@@ -704,157 +704,97 @@ async function interrogaGPT(jsonData) {
 
     aiResponseContainer.innerHTML = '<div class="spinner"></div><p style="text-align:center;">Elaborazione in corso... L\'analisi potrebbe richiedere qualche istante.</p>';
     
-    const prompt = `# 🎯 PERITO VALUTATORE AZIENDALE - ANALISI COMPLETA PIV
+const prompt = `
+# 🎯 PERITO VALUTATORE DEL CAPITALE ECONOMICO (PIV) — PERIZIA TECNICA
 
-## **CONTESTO E RUOLO**
-Sei un perito valutatore aziendale certificato che opera secondo i Principi Italiani di Valutazione (PIV). Devi redigere una relazione di valutazione completa e professionale per una PMI italiana, applicando rigorosamente le metodologie previste dai PIV.
+## RUOLO E RESPONSABILITÀ
+Agisci come **esperto valutatore del capitale economico d’impresa**, profondo conoscitore dei **Principi Italiani di Valutazione (PIV)** e della **tecnica aziendale**, con **esperienza almeno decennale** in perizie per PMI italiane. 
+Finalità: **redigere una perizia di stima del capitale economico (Equity Value)** basata **esclusivamente** sui dati contenuti nel JSON fornito dall’utente e sui calcoli derivati dal file XBRL. **Non introdurre stime o dati esterni**. Se un dato è mancante o non desumibile, scrivi chiaramente **"Dato non disponibile"** e prosegui senza sostituzioni arbitrarie.
 
-## **METODOLOGIE PIV DA APPLICARE**
+## DATI DISPONIBILI (JSON)
+<json>
+${JSON.stringify(jsonData, null, 2)}
+</json>
 
-### **1. METODO PATRIMONIALE COMPLESSO**
-**Logica:** Valore dell'azienda = valore di ricostituzione del patrimonio nella prospettiva di funzionamento
-**Formula:** V = K' (Patrimonio Netto Rettificato)
-- Usa il valore "patrimonioNettoRettificato" fornito dall'utente
-- Spiega che rappresenta il patrimonio rivalutato a valori correnti di mercato
+## METODOLOGIE DA APPLICARE (in coerenza con i PIV)
 
-### **2. METODO REDDITUALE**
-**Logica:** Valore basato sulla capacità di generare reddito futuro
-**Formula Rendita Perpetua:** V = R/i
-**Formula Rendita Limitata:** V = R × a(n,i) dove a(n,i) = [1-(1+i)^-n]/i
+1) **Metodo Patrimoniale Complesso**  
+   **Formula:** \`V = K'\` (Patrimonio Netto Rettificato)  
+   - Usa \`patrimonioNettoRettificato\` (K'). Spiega che rappresenta il patrimonio a valori correnti in continuità.
 
-**Processo normalizzazione obbligatorio:**
-- Elimina componenti straordinarie e non ricorrenti
-- Neutralizza politiche di bilancio distorsive  
-- Depura interferenze tributarie
-- Considera solo gestione caratteristica
+2) **Metodo Reddituale**  
+   **Rendita limitata:** \`V = R × a(n,i')\` con \`a(n,i') = [1 - (1 + i')^{-n}] / i'\`  
+   **(se pertinente) Rendita perpetua:** \`V = R / i\`  
+   - Prima esegui **normalizzazioni**: elimina componenti straordinarie e non ricorrenti, neutralizza politiche contabili distorsive, depura interferenze tributarie, separa gestione accessoria. Se non desumibili dai dati, dichiara che non sono applicabili.
 
-### **3. METODO MISTO U.E.C. (Union Européenne des Experts)**
-**Formula completa:** W = K' + [(R - i×K') × a(n,i')] + SA
-Dove:
-- K' = Patrimonio rettificato strumentale  
-- R = Reddito medio normale atteso
-- i = Tasso rendimento normale (settoriale)
-- i' = Tasso attualizzazione sovrareddito
-- (R - i×K') = Sovrareddito (se positivo = Goodwill, se negativo = Badwill)
-- a(n,i') = Fattore attualizzazione rendita limitata
-- SA = Surplus Assets (beni accessori) - usa "surplusAssets" se fornito
+3) **Metodo Misto U.E.C. (Union Européenne des Experts)**  
+   **Formula:** \`W = K' + [(R − i×K') × a(n,i')] + SA\`  
+   - \`K'\` = patrimonio strumentale rettificato; \`SA\` = \`surplusAssets\`.
 
-### **4. METODO DCF SEMPLIFICATO**
-**Formula:** EV = Σ[FCF/(1+WACC)^t] + TV, poi W = EV - PFN
-- Usa "FCF Proxy (Utile + Amm.ti + Acc.ti)" dai dati storici
-- Stima crescita sostenibile basata su ROE e retention rate
-- **WACC:** (E/V × Ke) + (D/V × Kd × (1-t))
-- **Ke (CAPM PMI):** Rf + β(Rm-Rf) + premioIlliquidita + premioDimensione
+4) **Metodo DCF Semplificato**  
+   **Formula:** \`EV = Σ[FCF/(1+WACC)^t] + TV\`; poi \`Equity = EV − PFN\`  
+   - **Ke (CAPM per PMI):** \`Ke = Rf + β(Rm−Rf) + premioIlliquidita + premioDimensione\`  
+   - **WACC:** \`WACC = (E/V × Ke) + (D/V × Kd × (1−t))\`  
+   - Se FCF precisi non sono disponibili, usa un **proxy coerente dai dati storici** (es. Utile + Ammortamenti ± ΔCCN), dichiarandolo esplicitamente.
 
-### **5. METODO MULTIPLI**
-**Formula:** W = (EV da multipli) - PFN
-- EV = EBITDA × Multiplo EV/EBITDA settoriale
-- Utilizza il "multiploEbitda" fornito dall'utente
+5) **Metodo Multipli EV/EBITDA**  
+   **EV:** \`EV = EBITDA × multiploEbitda\`  
+   **Equity:** \`Equity = EV − PFN\`.
 
-## **TASSO DI ATTUALIZZAZIONE - CAPM ESTESO PER PMI**
-**Formula completa:** Ke = Rf + β(Rm - Rf) + Premio_Illiquidità + Premio_Dimensione
-- **Rf:** tassoRiskFree (BOT/BTP decennale)
-- **β:** betaAziendale (settoriale o specifico)
-- **(Rm-Rf):** premioRischio (equity premium storico)
-- **Premio_Illiquidità:** premioIlliquidita (2-4% tipico per PMI)
-- **Premio_Dimensione:** premioDimensione (1-3% per small cap)
+## PARAMETRI DA LEGGERE DAL JSON (chiavi attese)
+- **Base:** \`patrimonioNettoRettificato → K'\`, \`redditoMedioProspettico → R\`, \`tassoAttualizzazione → i'\`, \`tassoRemunerazione → i\`, \`periodoLimitato → n\`, \`multiploEbitda\`
+- **WACC/CAPM:** \`tassoRiskFree → Rf\`, \`betaAziendale → β\`, \`premioRischio → (Rm−Rf)\`, \`costoDebito → Kd\`, \`aliquotaFiscale → t\`, \`rapportoDebtEquity → D/E\`
+- **Premi PMI:** \`premioIlliquidita\`, \`premioDimensione\`
+- **Surplus Assets:** \`surplusAssets → SA\`
+- **PFN:** usa il valore **dell’ultimo anno** dai calcoli XBRL.
+> **Regola PFN:** PFN > 0 = debito netto (si **sottrae** all’EV); PFN < 0 = cassa netta (si **somma** all’EV).
 
-## **STRUTTURA RELAZIONE PIV**
+## ISTRUZIONI DI CALCOLO E QUALITÀ
+- Per **ogni metodo** mostra: **(1) spiegazione teorica PIV**, **(2) formula**, **(3) parametri usati** con provenienza dal JSON, **(4) calcolo step-by-step** con sostituzione numerica, **(5) risultato** e **breve commento critico**.
+- **Unità di misura:** Euro (€) con separatore migliaia e **due decimali**; percentuali con **due decimali**.
+- **Nessuna ipotesi** o dato esterno. **Niente extrapolazioni** se il dato non c’è.
+- **Sensibilità**: evidenzia l’effetto di ±1% su \`i'\` e sul \`multiploEbitda\` (se i parametri sono disponibili).
+- Evidenzia **limiti** e **assunzioni**.
 
-### **PARTE I: PREMESSA**
-- Oggetto dell'incarico e finalità
-- Criteri e principi seguiti (riferimento esplicito ai PIV)
-- Base informativa utilizzata
+## STRUTTURA DELL’OUTPUT (HTML puro)
+Usa SOLO: \`<h3>\`, \`<h4>\`, \`<p>\`, \`<ul>\`, \`<li>\`, \`<table>\`, \`<thead>\`, \`<tbody>\`, \`<tr>\`, \`<th>\`, \`<td>\`, \`<small>\`, \`<strong>\`, \`<em>\`, \`<code>\`. Niente script o CSS in linea avanzati.
 
-### **PARTE II: ANALISI ECONOMICO-FINANZIARIA**
-**Analisi trend storici (ultimi 2-3 anni):**
-- **Economici:** Ricavi, EBITDA, EBIT, Utile Netto, marginalità %
-- **Patrimoniali:** Patrimonio Netto, Totale Attivo, composizione immobilizzazioni
-- **Finanziari:** PFN, liquidità, indebitamento, CCN e sue variazioni
-- **Indici:** ROE, ROI, Debt/Equity, rotazione crediti/debiti
+1. **<h3>Premessa e Incarico</h3>**  
+   Finalità, perimetro, principi PIV richiamati, **base informativa** (file XBRL e input manuali).
 
-**Focus speciale su Capitale Circolante:**
-- Analizza composizione CCN (Rimanenze + Crediti - Debiti fornitori)
-- Interpreta Variazione CCN: assorbimento/generazione liquidità
-- Commenta efficienza gestionale (giorni di incasso/pagamento)
+2. **<h3>Sintesi dei Parametri di Valutazione</h3>**  
+   Tabella con i valori di \`valuationInputs\` (K', R, i', i, n, multiploEbitda, Rf, β, (Rm−Rf), Kd, t, D/E, premi PMI, SA).
 
-### **PARTE III: PROCESSO DI NORMALIZZAZIONE**
-Prima di applicare metodi reddituali:
-1. **Rettifiche per componenti straordinarie** (eliminazione)
-2. **Neutralizzazione politiche contabili** (es. ammortamenti accelerati)
-3. **Eliminazione interferenze tributarie**
-4. **Separazione gestione accessoria** da caratteristica
-5. **Determinazione reddito normalizzato "R"**
+3. **<h3>Analisi Economico-Finanziaria</h3>**  
+   - **Redditività:** andamento ricavi, EBITDA, EBIT, utile, indici ROE/ROI.  
+   - **Capitale Circolante Netto (CCN):** composizione (rimanenze, crediti, debiti) e **ΔCCN** con interpretazione (assorbimento/generazione di cassa).  
+   - **Struttura finanziaria:** Patrimonio Netto, indebitamento, **PFN**.
 
-### **PARTE IV: APPLICAZIONE METODI VALUTATIVI**
+4. **<h3>Processo di Normalizzazione</h3>**  
+   Elenco rettifiche applicate o motivazione di non applicabilità per mancanza dati.
 
-Per OGNI metodo applica questa struttura:
-1. **Spiegazione teorica** del metodo secondo PIV
-2. **Formula matematica** esplicita  
-3. **Parametri utilizzati** con giustificazione
-4. **Calcoli step-by-step** mostrati chiaramente
-5. **Risultato** con considerazioni critiche
+5. **<h3>Applicazione dei Metodi di Valutazione</h3>**  
+   **<h4>Patrimoniale Complesso</h4>** …  
+   **<h4>Reddituale</h4>** …  
+   **<h4>Misto U.E.C.</h4>** …  
+   **<h4>DCF Semplificato</h4>** …  
+   **<h4>Multipli EV/EBITDA</h4>** …  
 
-### **PARTE V: SINTESI E CONCLUSIONI**
-- **Tabella riassuntiva** tutti i valori ottenuti
-- **Range di valore** ragionevole (min-max)
-- **Valore finale** come media ponderata ragionata
-- **Considerazioni finali** su attendibilità e limiti
+6. **<h3>Risultati, Range e Conclusioni</h3>**  
+   - Tabella riepilogativa dei valori per metodo (con formule sintetiche e parametri chiave).  
+   - **Range** (min–max) e **Valore finale proposto** (media semplice o ponderata), con breve motivazione.  
+   - Considerazioni su **attendibilità** e **limiti**.
 
-## **FORMULE MATEMATICHE STANDARD**
+7. **<h3>Dichiarazioni Finali</h3>**  
+   <em>Relazione redatta secondo i Principi Italiani di Valutazione (PIV) – Dottore Commercialista Fabio Zambelli – ${new Date().toLocaleDateString('it-IT')}</em>
 
-**Fattore attualizzazione rendita limitata:**
-\`\`\`
-a(n,i) = [1 - (1+i)^-n] / i
-\`\`\`
+## SEGNALAZIONE CARENZE DATI
+Per ogni voce mancante nel JSON, inserisci: <small>[Dato non disponibile nel JSON]</small> e salta il calcolo che ne dipende, senza inventare valori.
 
-**WACC:**
-\`\`\`
-WACC = (E/V × Ke) + (D/V × Kd × (1-t))
-\`\`\`
+## CONSEGNA
+**Restituisci esclusivamente HTML valido e pronto per l’inserimento nel DOM** (niente testo extra fuori dai tag HTML).
+`;
 
-**CAPM per PMI:**
-\`\`\`
-Ke = Rf + β(Rm-Rf) + premioIlliquidita + premioDimensione
-\`\`\`
-
-**Crescita sostenibile:**
-\`\`\`
-g = ROE × (1 - Dividend Payout Ratio)
-\`\`\`
-
-## **PARAMETRI DA UTILIZZARE**
-Dal JSON valuationInputs:
-- **Base:** patrimonioNettoRettificato → K', redditoMedioProspettico → R, tassoAttualizzazione → i', tassoRemunerazione → i, periodoLimitato → n, multiploEbitda
-- **WACC/CAPM:** tassoRiskFree → Rf, betaAziendale → β, premioRischio → (Rm-Rf), costoDebito → Kd (pre-popolato da XBRL), aliquotaFiscale → t, rapportoDebtEquity → D/E
-- **Premi PMI:** premioIlliquidita (2-4%), premioDimensione (1-3%)
-- **Surplus Assets:** surplusAssets → SA (beni accessori non operativi)
-
-**NOTA:** Il costoDebito è automaticamente calcolato dai dati XBRL come rapporto Oneri Finanziari / Debiti Finanziari Totali, ma l'utente può modificarlo se necessario.
-
-## **FORMATO OUTPUT**
-Relazione in HTML professionale con:
-- <h3> per sezioni principali
-- <h4> per sottosezioni  
-- Tabelle per dati numerici
-- **Grassetto** per risultati chiave
-- Formule in formato \`codice\`
-
-## **CONTROLLI QUALITÀ PIV**
-✅ Ogni calcolo deve mostrare la formula
-✅ Ogni parametro deve essere giustificato  
-✅ Nessuna stima arbitraria
-✅ Coerenza metodologica tra approcci
-✅ Evidenziare limitazioni e assunzioni
-
-## **CHIUSURA OBBLIGATORIA**
-Termina sempre con: 
-*"Relazione redatta secondo i Principi Italiani di Valutazione (PIV) - Dott. Perito Valutatore Aziendale - ${new Date().toLocaleDateString('it-IT')}"*
-
----
-
-**DATI DA ANALIZZARE:**
-${JSON.stringify(jsonData, null, 2)}`;
 
     try {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -864,7 +804,7 @@ ${JSON.stringify(jsonData, null, 2)}`;
                 model: "gpt-4o",
                 messages: [{ role: "user", content: prompt }],
                 temperature: 0.1,
-                max_tokens: 4000
+                max_tokens: 6000
             })
         });
 
