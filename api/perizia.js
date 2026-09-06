@@ -2,7 +2,7 @@ import { Agent, run } from '@openai/agents';
 
 const peritoAgent = new Agent({
   name: 'Perito Valutatore PIV',
-  model: 'gpt-5.6',
+  model: 'gpt-5',
   instructions: `Sei un agente specializzato nella valutazione d'azienda secondo i Principi Italiani di Valutazione (PIV).
 Ricevi esclusivamente dati strutturati JSON prodotti dall'app XBRL.
 Devi:
@@ -22,6 +22,14 @@ function isAuthorized(req) {
   return auth === `Bearer ${expected}`;
 }
 
+function safeOpenAIError(error) {
+  const status = error?.status || error?.response?.status || null;
+  const code = error?.code || error?.error?.code || error?.cause?.code || null;
+  const rawMessage = error?.error?.message || error?.message || error?.cause?.message || 'Errore OpenAI non specificato';
+  const message = String(rawMessage).replace(/sk-[A-Za-z0-9_-]+/g, '[REDACTED]').slice(0, 600);
+  return [status ? `HTTP ${status}` : null, code, message].filter(Boolean).join(' - ');
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -32,8 +40,12 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'OPENAI_API_KEY non configurata sul server' });
   }
 
+  if (!process.env.APP_AGENT_ACCESS_KEY) {
+    return res.status(500).json({ error: 'APP_AGENT_ACCESS_KEY non configurata sul server' });
+  }
+
   if (!isAuthorized(req)) {
-    return res.status(401).json({ error: 'Accesso non autorizzato' });
+    return res.status(401).json({ error: 'Codice accesso agente non valido' });
   }
 
   const payload = req.body;
@@ -50,7 +62,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ html: result.finalOutput ?? '' });
   } catch (error) {
-    console.error('Errore agente OpenAI:', error);
-    return res.status(500).json({ error: 'Errore durante l\'esecuzione dell\'agente' });
+    const detail = safeOpenAIError(error);
+    console.error('Errore agente OpenAI:', detail);
+    return res.status(500).json({ error: `Errore OpenAI: ${detail}` });
   }
 }
