@@ -3,91 +3,127 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>XBRL Agentic Valuation</title>
+  <title>Analisi XBRL Agentica</title>
   <style>
-    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f6f7fb;color:#222}
-    header{padding:14px 18px;background:#111827;color:#fff;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-    header strong{font-size:16px}
-    .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    input{padding:9px 10px;border-radius:6px;border:1px solid #cbd5e1;min-width:220px}
-    button{padding:9px 12px;border:0;border-radius:6px;background:#2563eb;color:#fff;font-weight:600;cursor:pointer}
-    button:disabled{opacity:.6;cursor:default}
-    iframe{width:100%;height:70vh;border:0;background:#fff}
-    #output{margin:16px;padding:18px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;min-height:100px}
-    .muted{color:#64748b}
-    .error{color:#b91c1c;font-weight:600}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f9f9f9}
+    #base-app{position:fixed;inset:0;width:100%;height:100%;border:0;background:#fff}
   </style>
 </head>
 <body>
-<header>
-  <strong>Valutazione XBRL Agentica</strong>
-  <div class="controls">
-    <input id="access-key" type="password" placeholder="Codice accesso agente">
-    <button id="run-agent">Genera perizia con agente</button>
-  </div>
-</header>
-
-<iframe id="base-app" src="/index.html" title="Analisi XBRL"></iframe>
-
-<section id="output">
-  <p class="muted">1. Elabora l'XBRL nell'app qui sopra. 2. Compila gli eventuali parametri. 3. Premi “Genera perizia con agente”. Il JSON viene passato automaticamente all'agente: non devi copiarlo.</p>
-</section>
-
+<iframe id="base-app" src="/index.html" title="Analisi XBRL Agentica"></iframe>
 <script>
 const iframe = document.getElementById('base-app');
-const output = document.getElementById('output');
-const runBtn = document.getElementById('run-agent');
-const keyInput = document.getElementById('access-key');
 
-const saved = sessionStorage.getItem('agentAccessKey');
-if (saved) keyInput.value = saved;
-
-async function getJsonFromBaseApp() {
+iframe.addEventListener('load', () => {
   const win = iframe.contentWindow;
   const doc = iframe.contentDocument;
-  if (!win || !doc) throw new Error('App XBRL non ancora pronta.');
+  if (!win || !doc) return;
 
-  let jsonArea = doc.getElementById('json-output');
-  if (!jsonArea && typeof win.generaJsonFinale === 'function') {
-    win.generaJsonFinale();
-    jsonArea = doc.getElementById('json-output');
-  }
-  if (!jsonArea || !jsonArea.value) {
-    throw new Error('Prima elabora almeno un file XBRL e genera i dati di valutazione.');
-  }
-  return JSON.parse(jsonArea.value);
-}
-
-runBtn.addEventListener('click', async () => {
-  const accessKey = keyInput.value.trim();
-  if (!accessKey) {
-    output.innerHTML = '<p class="error">Inserisci il codice di accesso dell’agente.</p>';
-    return;
+  async function refreshAgentStatus(statusEl) {
+    try {
+      const response = await fetch('/api/agent-status');
+      const status = await response.json();
+      if (!status.openaiConfigured) {
+        statusEl.innerHTML = '<div style="padding:10px;border-radius:6px;background:#fff3cd;color:#7a5b00;margin-top:10px;"><strong>OpenAI non ancora configurato.</strong> Devi inserire OPENAI_API_KEY nelle Environment Variables di Vercel.</div>';
+      } else if (!status.accessConfigured) {
+        statusEl.innerHTML = '<div style="padding:10px;border-radius:6px;background:#fff3cd;color:#7a5b00;margin-top:10px;"><strong>Protezione agente non configurata.</strong> Devi inserire APP_AGENT_ACCESS_KEY nelle Environment Variables di Vercel.</div>';
+      } else {
+        statusEl.innerHTML = '<div style="padding:10px;border-radius:6px;background:#e8f5e9;color:#1b5e20;margin-top:10px;"><strong>Agente OpenAI pronto.</strong> Il JSON verrà inviato automaticamente al backend.</div>';
+      }
+    } catch (_) {
+      statusEl.textContent = '';
+    }
   }
 
-  sessionStorage.setItem('agentAccessKey', accessKey);
-  runBtn.disabled = true;
-  output.innerHTML = '<p>Agente in elaborazione...</p>';
-
-  try {
-    const payload = await getJsonFromBaseApp();
-    const response = await fetch('/api/perizia', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessKey}`
-      },
-      body: JSON.stringify(payload)
+  function sanitizeHtml(html) {
+    const parsed = new DOMParser().parseFromString('<div id="safe-root">' + html + '</div>', 'text/html');
+    parsed.querySelectorAll('script,iframe,object,embed,link,style').forEach(el => el.remove());
+    parsed.querySelectorAll('*').forEach(el => {
+      [...el.attributes].forEach(attr => {
+        if (/^on/i.test(attr.name) || /^javascript:/i.test(attr.value)) el.removeAttribute(attr.name);
+      });
     });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Errore nella chiamata all’agente');
-    output.innerHTML = data.html || '<p>Nessun contenuto restituito.</p>';
-  } catch (err) {
-    output.innerHTML = `<p class="error">${err.message}</p>`;
-  } finally {
-    runBtn.disabled = false;
+    return parsed.getElementById('safe-root').innerHTML;
   }
+
+  function injectAgentSection() {
+    const jsonArea = doc.getElementById('json-output');
+    const aiContainer = doc.getElementById('ai-container');
+    if (!jsonArea || !jsonArea.value || !aiContainer) return;
+
+    aiContainer.style.display = 'block';
+    aiContainer.innerHTML = `
+      <h2>Perizia con Agente OpenAI</h2>
+      <div style="padding:14px;border:2px solid #3f51b5;border-radius:8px;background:#eef2ff;margin-bottom:14px;">
+        <p style="margin-top:0;"><strong>Flusso automatico:</strong> il JSON appena generato viene passato direttamente all'agente. Non devi copiarlo o incollarlo.</p>
+        <div class="input-group" style="margin-top:10px;">
+          <label for="agent-access-key">Codice accesso agente</label>
+          <input type="password" id="agent-access-key" placeholder="Inserisci il tuo codice di accesso">
+          <span class="helper-text">Questo codice protegge l'uso della tua API OpenAI da parte di altri utenti.</span>
+        </div>
+        <button id="generate-agent-report-btn" class="btn" style="background:#1a237e;">Genera Perizia con Agente OpenAI</button>
+        <div id="agent-config-status"></div>
+      </div>
+      <div id="agent-report-container" style="white-space:normal;background:#fff;border:1px solid #d1d9e6;border-radius:8px;padding:20px;line-height:1.7;"></div>
+    `;
+
+    const keyInput = doc.getElementById('agent-access-key');
+    const savedKey = win.sessionStorage.getItem('agentAccessKey');
+    if (savedKey) keyInput.value = savedKey;
+
+    const statusEl = doc.getElementById('agent-config-status');
+    refreshAgentStatus(statusEl);
+
+    doc.getElementById('generate-agent-report-btn').addEventListener('click', async () => {
+      const accessKey = keyInput.value.trim();
+      const reportEl = doc.getElementById('agent-report-container');
+      const button = doc.getElementById('generate-agent-report-btn');
+
+      if (!accessKey) {
+        reportEl.innerHTML = '<p style="color:#c62828;"><strong>Inserisci il codice accesso agente.</strong></p>';
+        return;
+      }
+
+      let payload;
+      try {
+        payload = JSON.parse(jsonArea.value);
+      } catch (_) {
+        reportEl.innerHTML = '<p style="color:#c62828;"><strong>JSON non valido.</strong></p>';
+        return;
+      }
+
+      win.sessionStorage.setItem('agentAccessKey', accessKey);
+      button.disabled = true;
+      button.textContent = 'Agente in elaborazione...';
+      reportEl.innerHTML = '<div class="spinner"></div><p style="text-align:center;">Analisi e predisposizione della perizia in corso...</p>';
+
+      try {
+        const response = await fetch('/api/perizia', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessKey}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Errore nella chiamata all’agente');
+        reportEl.innerHTML = sanitizeHtml(data.html || '<p>Nessun contenuto restituito.</p>');
+      } catch (error) {
+        reportEl.innerHTML = `<p style="color:#c62828;"><strong>${error.message}</strong></p>`;
+        refreshAgentStatus(statusEl);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Genera Perizia con Agente OpenAI';
+      }
+    });
+  }
+
+  doc.addEventListener('click', event => {
+    if (event.target && event.target.id === 'generate-final-json-btn') {
+      setTimeout(injectAgentSection, 100);
+    }
+  }, true);
 });
 </script>
 </body>
