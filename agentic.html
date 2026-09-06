@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>XBRL Agentic Valuation</title>
+  <style>
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f6f7fb;color:#222}
+    header{padding:14px 18px;background:#111827;color:#fff;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    header strong{font-size:16px}
+    .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    input{padding:9px 10px;border-radius:6px;border:1px solid #cbd5e1;min-width:220px}
+    button{padding:9px 12px;border:0;border-radius:6px;background:#2563eb;color:#fff;font-weight:600;cursor:pointer}
+    button:disabled{opacity:.6;cursor:default}
+    iframe{width:100%;height:70vh;border:0;background:#fff}
+    #output{margin:16px;padding:18px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;min-height:100px}
+    .muted{color:#64748b}
+    .error{color:#b91c1c;font-weight:600}
+  </style>
+</head>
+<body>
+<header>
+  <strong>Valutazione XBRL Agentica</strong>
+  <div class="controls">
+    <input id="access-key" type="password" placeholder="Codice accesso agente">
+    <button id="run-agent">Genera perizia con agente</button>
+  </div>
+</header>
+
+<iframe id="base-app" src="/index.html" title="Analisi XBRL"></iframe>
+
+<section id="output">
+  <p class="muted">1. Elabora l'XBRL nell'app qui sopra. 2. Compila gli eventuali parametri. 3. Premi “Genera perizia con agente”. Il JSON viene passato automaticamente all'agente: non devi copiarlo.</p>
+</section>
+
+<script>
+const iframe = document.getElementById('base-app');
+const output = document.getElementById('output');
+const runBtn = document.getElementById('run-agent');
+const keyInput = document.getElementById('access-key');
+
+const saved = sessionStorage.getItem('agentAccessKey');
+if (saved) keyInput.value = saved;
+
+async function getJsonFromBaseApp() {
+  const win = iframe.contentWindow;
+  const doc = iframe.contentDocument;
+  if (!win || !doc) throw new Error('App XBRL non ancora pronta.');
+
+  let jsonArea = doc.getElementById('json-output');
+  if (!jsonArea && typeof win.generaJsonFinale === 'function') {
+    win.generaJsonFinale();
+    jsonArea = doc.getElementById('json-output');
+  }
+  if (!jsonArea || !jsonArea.value) {
+    throw new Error('Prima elabora almeno un file XBRL e genera i dati di valutazione.');
+  }
+  return JSON.parse(jsonArea.value);
+}
+
+runBtn.addEventListener('click', async () => {
+  const accessKey = keyInput.value.trim();
+  if (!accessKey) {
+    output.innerHTML = '<p class="error">Inserisci il codice di accesso dell’agente.</p>';
+    return;
+  }
+
+  sessionStorage.setItem('agentAccessKey', accessKey);
+  runBtn.disabled = true;
+  output.innerHTML = '<p>Agente in elaborazione...</p>';
+
+  try {
+    const payload = await getJsonFromBaseApp();
+    const response = await fetch('/api/perizia', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessKey}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Errore nella chiamata all’agente');
+    output.innerHTML = data.html || '<p>Nessun contenuto restituito.</p>';
+  } catch (err) {
+    output.innerHTML = `<p class="error">${err.message}</p>`;
+  } finally {
+    runBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
